@@ -11,11 +11,10 @@
 (define test-name (make-parameter '()))
 
 (define-syntax-rule (define-test (name args ...) exp exp* ...)
-  (define name
-    (lambda (args ...)
-      (parameterize ((test-name (append (test-name)
-                                        (list (syntax->datum #'name)))))
-        exp exp* ...))))
+  (define (name args ...)
+    (parameterize ((test-name (append (test-name)
+                                      (list (syntax->datum #'name)))))
+      exp exp* ...)))
 
 (define-syntax-rule (combine-results exp ...)
   (let ((result #t))
