@@ -1,4 +1,5 @@
 (define-module (concurrency channel)
+  #:use-module (srfi srfi-9)
   #:use-module (srfi srfi-9 gnu)
   #:use-module (ice-9 threads)
   #:export (make-channel channel-put channel-get))
