@@ -1,7 +1,7 @@
 (define-module (concurrency channel)
   #:use-module (srfi srfi-9 gnu)
   #:use-module (ice-9 threads)
-  #:export (list make-channel channel-put channel-get))
+  #:export (make-channel channel-put channel-get))
 
 (define-record-type <channel>
   (%make-channel receiver-mutex sender-mutex shared-mutex
