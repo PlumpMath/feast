@@ -10,33 +10,25 @@
 ;;; Peter Seibel and translated to Guile.
 (define test-name (make-parameter '()))
 
-(define-syntax define-test
-  (syntax-rules ()
-    ((_ (name args ...) exp exp* ...)
-     (define name
-       (lambda (args ...)
-         (parameterize ((test-name (append (test-name)
-                                           (list (syntax->datum #'name)))))
-           exp exp* ...))))))
+(define-syntax-rule (define-test (name args ...) exp exp* ...)
+  (define name
+    (lambda (args ...)
+      (parameterize ((test-name (append (test-name)
+                                        (list (syntax->datum #'name)))))
+        exp exp* ...))))
 
-(define-syntax combine-results
-  (syntax-rules ()
-    ((_ exp ...)
-     (let ((result #t))
-       (unless exp (set! result #f)) ...
-       result))))
+(define-syntax-rule (combine-results exp ...)
+  (let ((result #t))
+    (unless exp (set! result #f)) ...
+    result))
 
-(define-syntax report-result
-  (syntax-rules ()
-    ((_ result exp)
-     (begin
-       (format #t "~[FAIL~;pass~] ... ~a: ~s~%" (if result 1 0) (test-name) 'exp)
-       result))))
+(define-syntax-rule (report-result result exp)
+  (begin
+    (format #t "~[FAIL~;pass~] ... ~a: ~s~%" (if result 1 0) (test-name) 'exp)
+    result))
 
-(define-syntax check
-  (syntax-rules ()
-    ((_ exp ...)
-     (combine-results (report-result 'exp exp) ...))))
+(define-syntax-rule (check exp ...)
+  (combine-results (report-result 'exp exp) ...))
 ;;; end of the testing framework
 
 (define-test (simple-tests)
