@@ -54,6 +54,7 @@
                             (display "#<channel>" port)))
 
 (define (make-channel)
+  "Return a channel."
   (let ((reader-waiting-mutex (make-mutex 'allow-external-unlock))
         (sender-waiting-mutex (make-mutex 'allow-external-unlock)))
     (lock-mutex reader-waiting-mutex #f #f)
@@ -63,10 +64,18 @@
                    reader-waiting-mutex (make-condition-variable))))
 
 (define (channel-get ch)
+  "Get a value from the channel CH.
+
+If there is no value availabe, it will block the caller until there is
+one."
   (with-mutex (channel-receiver-mutex ch)
               (take-value ch)))
 
 (define (channel-put ch v)
+  "Put a value into the channel CH.
+
+If there is no one waiting for a value, it will block until a getter
+appears."
   (with-mutex (channel-sender-mutex ch)
               (put-value ch v)))
 
