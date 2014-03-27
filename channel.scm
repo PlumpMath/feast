@@ -33,20 +33,19 @@
   #:use-module (srfi srfi-9)
   #:use-module (srfi srfi-9 gnu)
   #:use-module (ice-9 threads)
-  #:export (make-channel channel-put channel-get))
+  #:export (make-channel channel? channel-put channel-get))
+
+;;; Values used to know if there is something on the channel
+(define no-value '(no-value))
+(define receiver-waiting '(receiver-waiting))
 
 (define-record-type <channel>
-  (%make-channel receiver-mutex sender-mutex shared-mutex
-                 sender-waiting-mutex sender-condvar
-                 reader-waiting-mutex reader-condvar)
+  (%make-channel receiver-mutex sender-mutex mutex cv v)
   channel?
-  (receiver-mutex channel-receiver-mutex)
-  (sender-mutex channel-sender-mutex)
-  (shared-mutex channel-shared-mutex)
-  (sender-waiting-mutex channel-sender-waiting-mutex)
-  (sender-condvar channel-sender-condvar)
-  (reader-waiting-mutex channel-reader-waiting-mutex)
-  (reader-condvar channel-reader-condvar)
+  (receiver-mutex receiver-mutex)
+  (sender-mutex sender-mutex)
+  (mutex mutex)
+  (cv cv)
   (v channel-value set-channel-value!))
 
 (set-record-type-printer! <channel>
@@ -55,68 +54,59 @@
 
 (define (make-channel)
   "Return a channel."
-  (let ((reader-waiting-mutex (make-mutex 'allow-external-unlock))
-        (sender-waiting-mutex (make-mutex 'allow-external-unlock)))
-    (lock-mutex reader-waiting-mutex #f #f)
-    (lock-mutex sender-waiting-mutex #f #f)
-    (%make-channel (make-mutex) (make-mutex) (make-mutex)
-                   sender-waiting-mutex (make-condition-variable)
-                   reader-waiting-mutex (make-condition-variable))))
+  (%make-channel (make-mutex) (make-mutex) (make-mutex)
+                 (make-condition-variable) no-value))
 
 (define (channel-get ch)
   "Get a value from the channel CH.
 
 If there is no value availabe, it will block the caller until there is
 one."
-  (with-mutex (channel-receiver-mutex ch)
-              (take-value ch)))
+  (with-mutex (receiver-mutex ch)
+    (take-value ch)))
 
 (define (channel-put ch v)
   "Put a value into the channel CH.
 
 If there is no one waiting for a value, it will block until a getter
 appears."
-  (with-mutex (channel-sender-mutex ch)
-              (put-value ch v)))
+  (with-mutex (sender-mutex ch)
+    (put-value ch v)))
 
 (define (sender-waiting? ch)
-  (not (mutex-locked? (channel-sender-waiting-mutex ch))))
+  (not (eq? (channel-value ch) no-value)))
 
-(define (reader-waiting? ch)
-  (not (mutex-locked? (channel-reader-waiting-mutex ch))))
-
-(define (unlock-sender ch)
-  (signal-condition-variable (channel-sender-condvar ch)))
-
-(define (unlock-reader ch)
-  (signal-condition-variable (channel-reader-condvar ch)))
-
-(define (lock-sender ch)
-  (wait-condition-variable (channel-sender-condvar ch)
-                           (channel-sender-waiting-mutex ch)))
-
-(define (lock-reader ch)
-  (wait-condition-variable (channel-reader-condvar ch)
-                           (channel-reader-waiting-mutex ch)))
+(define (receiver-waiting? ch)
+  (eq? (channel-value ch) receiver-waiting))
 
 (define (take-value ch)
-  (let* ((value-read? #f)
-         (v (with-mutex (channel-shared-mutex ch)
-                        (when (sender-waiting? ch)
-                          (unlock-sender ch)
-                          (set! value-read? #t)
-                          (channel-value ch)))))
-    (cond (value-read? v)
-          (else (lock-reader ch)
-                (channel-value ch)))))
+  "Take a value from the channel.
+
+It blocks the thread if there is no thread waiting with a value."
+  ;; There should be only one thread getting a value from the channel
+  (with-mutex (mutex ch)
+    (when (not (sender-waiting? ch))
+      ;; Blocks until there is a sender in the channel
+      (set-channel-value! ch receiver-waiting)
+      (wait-condition-variable (cv ch) (mutex ch)))
+    (let ((r (channel-value ch)))
+      (set-channel-value! ch no-value)
+      (signal-condition-variable (cv ch)) ;release the sender
+      r)))
 
 (define (put-value ch v)
-  (let* ((value-put? #f))
-    (with-mutex (channel-shared-mutex ch)
-                (when (reader-waiting? ch)
-                  (set-channel-value! ch v)
-                  (unlock-reader ch)
-                  (set! value-put? #t)))
-    (cond (value-put? v)
-          (else (set-channel-value! ch v)
-                (lock-sender ch)))))
+  "Put a value into the channel.
+
+It blocks the thread if there is no thread waiting for a value."
+  ;; There should be only one thread putting a value into the channel
+  (lock-mutex (mutex ch))
+  (cond ((receiver-waiting? ch)
+         (set-channel-value! ch v)
+         (signal-condition-variable (cv ch))
+         ;; wait for receiver to release us
+         (unlock-mutex (mutex ch) (cv ch)))
+        (else
+         (set-channel-value! ch v)
+         ;; wait for a receiver
+         (wait-condition-variable (cv ch) (mutex ch))
+         (unlock-mutex (mutex ch)))))
