@@ -62,6 +62,7 @@
 
 If there is no value availabe, it will block the caller until there is
 one."
+  ;; Block reiceivers so only one can go in
   (with-mutex (receiver-mutex ch)
     (take-value ch)))
 
@@ -70,6 +71,7 @@ one."
 
 If there is no one waiting for a value, it will block until a getter
 appears."
+  ;; Block senders so only one can go in
   (with-mutex (sender-mutex ch)
     (put-value ch v)))
 
