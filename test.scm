@@ -240,8 +240,10 @@
     #t))
 
 (test-begin "Multiple Senders, Multiple receivers")
+
 (test-assert (senders-then-receivers 42 42 42))
 (test-assert (receivers-then-senders 42 42 42))
 (test-assert (senders-and-receivers 42 42))
 (test-assert (receivers-and-senders 42 42))
+
 (test-end "Multiple Senders, Multiple receivers")
