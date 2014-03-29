@@ -91,6 +91,7 @@
                                    (signal-condition-variable cv)))))))))
         (join-thread s0)
         (wait-condition-variable cv mx)
+        (for-each cancel-thread receivers)
         (equal? rv v)))))
 
 (define (receivers-then-sender number-of-receivers v)
@@ -111,6 +112,7 @@
              (s0 (call-with-new-thread (lambda () (channel-put c v)))))
         (join-thread s0)
         (wait-condition-variable cv mx)
+        (for-each cancel-thread receivers)
         (equal? rv v)))))
 
 (test-begin "One Sender, Multiple Receivers")
@@ -139,6 +141,7 @@
                                          (set! rv (channel-get c))))))
         (join-thread r0)
         (wait-condition-variable cv mx)
+        (for-each cancel-thread senders)
         (equal? rv v)))))
 
 (define (receiver-then-senders number-of-senders v)
@@ -158,6 +161,7 @@
                                          (signal-condition-variable cv))))))))
         (join-thread r0)
         (wait-condition-variable cv mx)
+        (for-each cancel-thread senders)
         (equal? rv v)))))
 
 (test-begin "Multiple Senders, Single receiver")
