@@ -173,14 +173,14 @@
 
 (test-end "Multiple Senders, Single receiver")
 
-(define (senders-then-receivers number-of-senders number-of-receivers v)
+(define (senders-then-receivers number-of-threads v)
   (let* ((c (make-channel))
-         (senders (build-list number-of-senders
+         (senders (build-list number-of-threads
                               (lambda (i)
                                 (call-with-new-thread
                                  (lambda ()
                                    (channel-put c v))))))
-         (receivers (build-list number-of-receivers
+         (receivers (build-list number-of-threads
                                 (lambda (i)
                                   (call-with-new-thread
                                    (lambda ()
@@ -189,14 +189,14 @@
     (for-each join-thread receivers)
     #t))
 
-(define (receivers-then-senders number-of-senders number-of-receivers v)
+(define (receivers-then-senders number-of-threads v)
   (let* ((c (make-channel))
-         (receivers (build-list number-of-receivers
+         (receivers (build-list number-of-threads
                                 (lambda (i)
                                   (call-with-new-thread
                                    (lambda ()
                                      (channel-get c))))))
-         (senders (build-list number-of-senders
+         (senders (build-list number-of-threads
                               (lambda (i)
                                 (call-with-new-thread
                                  (lambda ()
@@ -245,8 +245,8 @@
 
 (test-begin "Multiple Senders, Multiple receivers")
 
-(test-assert (senders-then-receivers 42 42 42))
-(test-assert (receivers-then-senders 42 42 42))
+(test-assert (senders-then-receivers 42 42))
+(test-assert (receivers-then-senders 42 42))
 (test-assert (senders-and-receivers 42 42))
 (test-assert (receivers-and-senders 42 42))
 
