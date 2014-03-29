@@ -88,12 +88,16 @@ It blocks the thread if there is no thread waiting with a value."
   ;; There should be only one thread getting a value from the channel
   (with-mutex (mutex ch)
     (when (not (sender-waiting? ch))
-      ;; Blocks until there is a sender in the channel
+      ;; Add data to the channel which represents a receiver is
+      ;; waiting and block until there is a sender with data in the
+      ;; channel.
       (set-channel-value! ch receiver-waiting)
       (wait-condition-variable (cv ch) (mutex ch)))
     (let ((r (channel-value ch)))
-      (set-channel-value! ch no-value)
-      (signal-condition-variable (cv ch)) ;release the sender
+      ;; Retrieve data from the channel and release the sender, which
+      ;; is waiting.
+      (set-channel-value! ch no-value)  ;clean channel's value
+      (signal-condition-variable (cv ch))
       r)))
 
 (define (put-value ch v)
@@ -104,6 +108,7 @@ It blocks the thread if there is no thread waiting for a value."
   (lock-mutex (mutex ch))
   (cond ((receiver-waiting? ch)
          (set-channel-value! ch v)
+         ;; Signal to the receiver there is data in the channel
          (signal-condition-variable (cv ch))
          ;; wait for receiver to release us
          (unlock-mutex (mutex ch) (cv ch)))
